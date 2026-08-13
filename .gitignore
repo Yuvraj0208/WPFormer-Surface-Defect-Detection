@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Model weights and datasets -- never commit these
+*.pth
+*.pt
+*.ckpt
+checkpoints/
+Dataset/
+datasets/
+datasets_raw/
+data/
+downloads/
+
+# Experiment output
+runs/
+preds/
+results/
+*.log
+
+# Keep the frozen split -- it is what makes results comparable
+!val_split.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

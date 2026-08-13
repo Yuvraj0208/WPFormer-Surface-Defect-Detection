@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-label="WPFormer Surface Defect Detection">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#0b1020"/>
+      <stop offset="55%"  stop-color="#131a35"/>
+      <stop offset="100%" stop-color="#1c1040"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#38bdf8"/>
+      <stop offset="50%"  stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="crack" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#38bdf8" stop-opacity="0.15"/>
+      <stop offset="45%"  stop-color="#a78bfa" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#f472b6" stop-opacity="0.2"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+
+  <!-- faint grid = the pixel lattice being classified -->
+  <g stroke="#ffffff" stroke-opacity="0.045" stroke-width="1">
+    <path d="M0 40H1200M0 80H1200M0 120H1200M0 160H1200M0 200H1200M0 240H1200M0 280H1200"/>
+    <path d="M40 0V300M80 0V300M120 0V300M160 0V300M200 0V300M240 0V300M280 0V300M320 0V300M360 0V300M400 0V300M440 0V300M480 0V300M520 0V300M560 0V300M600 0V300M640 0V300M680 0V300M720 0V300M760 0V300M800 0V300M840 0V300M880 0V300M920 0V300M960 0V300M1000 0V300M1040 0V300M1080 0V300M1120 0V300M1160 0V300"/>
+  </g>
+
+  <!-- the crack: thin, elongated, hard to see -- the thing the model must find -->
+  <g filter="url(#glow)" fill="none" stroke="url(#crack)" stroke-linecap="round">
+    <path d="M60 250 C 190 232, 250 196, 372 186 S 560 168, 668 132 S 900 96, 1140 70"
+          stroke-width="3"/>
+    <path d="M372 186 C 410 208, 452 214, 505 236" stroke-width="1.8" stroke-opacity="0.75"/>
+    <path d="M668 132 C 702 152, 742 158, 795 150" stroke-width="1.5" stroke-opacity="0.6"/>
+    <path d="M250 196 C 268 178, 292 172, 318 176" stroke-width="1.2" stroke-opacity="0.5"/>
+  </g>
+
+  <!-- 16 queries -->
+  <g fill="#a78bfa" fill-opacity="0.5">
+    <circle cx="905" cy="212" r="4"/><circle cx="930" cy="212" r="4"/>
+    <circle cx="955" cy="212" r="4"/><circle cx="980" cy="212" r="4"/>
+    <circle cx="1005" cy="212" r="4"/><circle cx="1030" cy="212" r="4"/>
+    <circle cx="1055" cy="212" r="4"/><circle cx="1080" cy="212" r="4"/>
+    <circle cx="905" cy="234" r="4"/><circle cx="930" cy="234" r="4"/>
+    <circle cx="955" cy="234" r="4"/><circle cx="980" cy="234" r="4"/>
+    <circle cx="1005" cy="234" r="4"/><circle cx="1030" cy="234" r="4"/>
+    <circle cx="1055" cy="234" r="4"/><circle cx="1080" cy="234" r="4"/>
+  </g>
+  <text x="905" y="262" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="12" fill="#8b93b8">16 dynamic queries</text>
+
+  <text x="60" y="108" font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif"
+        font-size="54" font-weight="800" fill="#f8fafc" letter-spacing="-1.2">WPFormer</text>
+  <rect x="60" y="122" width="132" height="4" rx="2" fill="url(#accent)"/>
+
+  <text x="60" y="152" font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif"
+        font-size="19" font-weight="600" fill="#c7d2fe">Pixel-level Surface Defect Detection</text>
+  <text x="60" y="180" font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif"
+        font-size="14.5" fill="#8b93b8">Reproduction and improvement of the CVPR 2025 query-based transformer</text>
+  <text x="60" y="203" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="13" fill="#64748b">Wavelet-enhanced &#183; Prototype-guided &#183; CrackSeg9k</text>
+</svg>
