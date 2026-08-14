@@ -95,6 +95,8 @@ class Config:
     ema_decay: float = 0.999
     grad_accum: int = 1
     seed: int = 42
+    val_every: int = 1        # validate every N epochs; raise it to buy back time
+    val_max: int = 0          # 0 = full val split; else cap to this many images
 
     # ---- evaluation ----
     tta: bool = False
@@ -335,9 +337,17 @@ class CrackDataset(Dataset):
 # 4. LOSSES
 # ============================================================================
 def paper_loss(logit, mask):
-    """Exactly defect_train.py's total_loss: plain BCE + plain IoU."""
+    """
+    defect_train.py's total_loss: BCE + IoU.
+
+    The original writes `sigmoid` then `nn.BCELoss`. That exact pair is BANNED
+    under torch.autocast -- in fp16 the sigmoid output can round to exactly 0 or
+    1 and the log then produces inf, so PyTorch raises rather than let it happen
+    silently. `binary_cross_entropy_with_logits` is the fused, numerically stable
+    form of the same quantity and is autocast-safe, so the maths is unchanged.
+    """
+    bce = F.binary_cross_entropy_with_logits(logit, mask)
     p = torch.sigmoid(logit)
-    bce = F.binary_cross_entropy(p.clamp(1e-6, 1 - 1e-6), mask)
     inter = (p * mask).sum(dim=(2, 3))
     union = (p + mask).sum(dim=(2, 3))
     iou = (1 - inter / (union - inter + 1e-6)).mean()
@@ -636,7 +646,16 @@ def train(cfg: Config):
 
         # ---- validate on the FROZEN val split, never on test ----
         model_for_eval = ema.shadow if ema else net
-        vres = evaluate(model_for_eval, va_pairs, eval_cfg_val, quiet=True,
+        is_last = (epoch + 1) == cfg.epochs
+        if not (is_last or (epoch + 1) % max(1, cfg.val_every) == 0):
+            print(f"  epoch {epoch+1:3d}/{cfg.epochs}  loss {avg:.4f}"
+                  f"                                  [{mins:.1f} min]", flush=True)
+            torch.save(model_for_eval.state_dict(),
+                       os.path.join(cfg.run_dir, "last.pth"))
+            continue
+
+        vpairs = va_pairs if cfg.val_max <= 0 else va_pairs[:cfg.val_max]
+        vres = evaluate(model_for_eval, vpairs, eval_cfg_val, quiet=True,
                         fast=True)
         history.append({"epoch": epoch + 1, "loss": avg, **vres})
 
@@ -723,6 +742,27 @@ def selftest():
     edge = torch.zeros_like(mask); edge[:, :, 29:34, 5:60] = 1.0
     check("boundary_loss: finite", torch.isfinite(boundary_loss(good, edge)))
 
+    # ---- under autocast, which is how training actually runs ----------------
+    # F.binary_cross_entropy and nn.BCELoss are BANNED inside autocast; only the
+    # *_with_logits forms are allowed. Testing the losses outside autocast hides
+    # that entirely, so every loss is exercised inside it here.
+    print("\n--- losses under autocast (amp) ---")
+    ac, _scaler = _amp_tools(True)
+    for fn, nm in ((paper_loss, "paper_loss"), (structure_loss, "structure_loss")):
+        try:
+            with ac():
+                v = fn(bad, mask)
+            check(f"{nm}: runs under autocast", torch.isfinite(v))
+        except Exception as e:
+            check(f"{nm}: runs under autocast", False, f"-> {type(e).__name__}: {e}")
+    try:
+        with ac():
+            v = boundary_loss(bad, edge)
+        check("boundary_loss: runs under autocast", torch.isfinite(v))
+    except Exception as e:
+        check("boundary_loss: runs under autocast", False,
+              f"-> {type(e).__name__}: {e}")
+
     print("\n--- deep supervision weighting ---")
     preds = [torch.randn(2, 1, 64, 64).cuda() for _ in range(5)]
     c = Config(loss="structure", ds_weights=(0.5, 1., 1., 1., 2.))
@@ -802,6 +842,10 @@ def main():
     ap.add_argument("--no-amp", action="store_true")
     ap.add_argument("--no-minmax", action="store_true")
     ap.add_argument("--grad-accum", type=int, default=None)
+    ap.add_argument("--val-every", type=int, default=None,
+                    help="validate every N epochs (default 1)")
+    ap.add_argument("--val-max", type=int, default=None,
+                    help="cap validation to N images (default: all)")
     ap.add_argument("--eval-only", action="store_true")
     ap.add_argument("--ckpt", default=None)
     ap.add_argument("--selftest", action="store_true",
@@ -814,7 +858,8 @@ def main():
     cfg = Config(**{**asdict(Config()), **PRESETS[args.preset]})
     cfg.name = args.name or args.preset
     for k in ("data_root", "out_dir", "split_file", "epochs", "batch_size",
-              "lr", "backbone", "loss", "aug", "ema", "tta", "grad_accum"):
+              "lr", "backbone", "loss", "aug", "ema", "tta", "grad_accum",
+              "val_every", "val_max"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(cfg, k, v)

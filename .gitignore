@@ -29,6 +29,10 @@ results/
 # Keep the frozen split -- it is what makes results comparable
 !val_split.json
 
+# Rendered video -- kept local, too large to be worth versioning
+*.mp4
+*.mov
+
 # OS
 .DS_Store
 Thumbs.db
