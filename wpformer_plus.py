@@ -43,6 +43,17 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 import torch
+
+# The authors' code and its dependencies emit several pages of deprecation
+# noise on every launch, which buries real tracebacks. Silence exactly these
+# messages -- never a blanket filter, so genuine warnings still surface.
+for _msg in (r"Importing from timm\.models\.layers is deprecated",
+             r"Importing from timm\.models\.registry is deprecated",
+             r"Overwriting pvt_v2_b\d in registry",
+             r"`nn\.functional\.upsample` is deprecated",
+             r"This class will be removed in the future",
+             r"torch\.cuda\.amp\.\w+ is deprecated"):
+    warnings.filterwarnings("ignore", message=_msg)
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -97,6 +108,11 @@ class Config:
     seed: int = 42
     val_every: int = 1        # validate every N epochs; raise it to buy back time
     val_max: int = 0          # 0 = full val split; else cap to this many images
+
+    # ---- surviving Colab ----
+    resume: bool = True       # continue from state.pt if the run was interrupted
+    skip_done: bool = True    # a finished run (summary.json present) is not redone
+    ckpt_every: int = 5       # full resumable state written every N epochs
 
     # ---- evaluation ----
     tta: bool = False
@@ -539,30 +555,32 @@ def evaluate(model, pairs, cfg, save_dir=None, quiet=False, fast=False):
     return res
 
 
-def iou_dice(model, pairs, cfg, thresholds=np.arange(0.3, 0.75, 0.05)):
+def iou_dice(pairs, pred_dir, thresholds=np.arange(0.3, 0.75, 0.05)):
     """
     Not in the paper. Reported because the crack literature uses them.
-    Uses the same cfg.minmax setting as evaluate(), so both metrics describe
-    the same pipeline rather than two different ones.
+
+    Reads the prediction maps evaluate() already wrote, rather than running the
+    network a second time -- with TTA on, a second pass would be 12 forwards per
+    image for numbers we have already computed.
     """
     inter = np.zeros(len(thresholds)); union = np.zeros(len(thresholds))
     psum = np.zeros(len(thresholds)); gsum = np.zeros(len(thresholds))
-    model.eval()
-    with torch.no_grad():
-        for ip, gp in pairs:
-            gt = cv2.imread(gp, cv2.IMREAD_GRAYSCALE)
-            H, W = gt.shape
-            prob = predict(model, Image.open(ip).convert("RGB"),
-                           cfg).cpu().numpy().squeeze()
-            if cfg.minmax:
-                prob = (prob - prob.min()) / (prob.max() - prob.min() + 1e-8)
-            prob = cv2.resize(prob, (W, H), interpolation=cv2.INTER_LINEAR)
-            g = gt > 127
-            for j, t in enumerate(thresholds):
-                p = prob > t
-                inter[j] += np.logical_and(p, g).sum()
-                union[j] += np.logical_or(p, g).sum()
-                psum[j] += p.sum(); gsum[j] += g.sum()
+    missing = 0
+    for ip, gp in pairs:
+        pp = os.path.join(pred_dir, Path(ip).stem + ".png")
+        if not os.path.exists(pp):
+            missing += 1
+            continue
+        gt = cv2.imread(gp, cv2.IMREAD_GRAYSCALE)
+        prob = cv2.imread(pp, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
+        g = gt > 127
+        for j, t in enumerate(thresholds):
+            p = prob > t
+            inter[j] += np.logical_and(p, g).sum()
+            union[j] += np.logical_or(p, g).sum()
+            psum[j] += p.sum(); gsum[j] += g.sum()
+    if missing:
+        print(f"  [warn] {missing} prediction maps missing from {pred_dir}")
     return (thresholds,
             inter / np.maximum(union, 1),
             2 * inter / np.maximum(psum + gsum, 1))
@@ -584,6 +602,17 @@ def _amp_tools(enabled):
 def train(cfg: Config):
     torch.manual_seed(cfg.seed); random.seed(cfg.seed); np.random.seed(cfg.seed)
     os.makedirs(cfg.run_dir, exist_ok=True)
+
+    summary_path = os.path.join(cfg.run_dir, "summary.json")
+    if cfg.skip_done and os.path.exists(summary_path):
+        done = json.load(open(summary_path))
+        t = done.get("test", {})
+        print(f"\n{'='*70}\nRUN: {cfg.name}  --  ALREADY FINISHED, skipping\n{'='*70}")
+        print("  " + "  ".join(f"{k} {v:.4f}" for k, v in t.items()
+                               if k != "seconds"))
+        print(f"  delete {summary_path} to force a re-run")
+        return done
+
     json.dump(asdict(cfg), open(os.path.join(cfg.run_dir, "config.json"), "w"),
               indent=1, default=str)
 
@@ -612,10 +641,43 @@ def train(cfg: Config):
     autocast_ctx, scaler = _amp_tools(cfg.amp)
     ema = EMA(net, cfg.ema_decay) if cfg.ema else None
 
-    best_wfm, history = -1.0, []
+    best_wfm, history, start_epoch = -1.0, [], 0
     eval_cfg_val = Config(**{**asdict(cfg), "tta": False})   # val = fast, no TTA
 
-    for epoch in range(cfg.epochs):
+    # ---- resume an interrupted run ----------------------------------------
+    # Colab drops the session long before a 30-epoch run finishes, so the full
+    # optimiser/scheduler/scaler/EMA state is written periodically and restored
+    # here. Without this a disconnect costs the entire run.
+    state_path = os.path.join(cfg.run_dir, "state.pt")
+    if cfg.resume and os.path.exists(state_path):
+        try:
+            st = torch.load(state_path, map_location="cuda", weights_only=False)
+            net.load_state_dict(st["model"])
+            opt.load_state_dict(st["opt"])
+            sched.load_state_dict(st["sched"])
+            if st.get("scaler") is not None:
+                scaler.load_state_dict(st["scaler"])
+            if ema is not None and st.get("ema") is not None:
+                ema.shadow.load_state_dict(st["ema"])
+            start_epoch = int(st["epoch"])
+            best_wfm = float(st["best_wfm"])
+            history = list(st["history"])
+            print(f"  RESUMED from epoch {start_epoch} "
+                  f"(best val wF so far {best_wfm:.4f})")
+        except Exception as e:
+            print(f"  [warn] could not resume from {state_path}: {e}")
+            print("  starting from scratch")
+            start_epoch, best_wfm, history = 0, -1.0, []
+
+    def save_state(ep):
+        torch.save({"model": net.state_dict(),
+                    "ema": ema.shadow.state_dict() if ema else None,
+                    "opt": opt.state_dict(), "sched": sched.state_dict(),
+                    "scaler": scaler.state_dict() if cfg.amp else None,
+                    "epoch": ep, "best_wfm": best_wfm, "history": history},
+                   state_path)
+
+    for epoch in range(start_epoch, cfg.epochs):
         net.train()
         running, t0 = 0.0, time.time()
         opt.zero_grad(set_to_none=True)
@@ -650,8 +712,8 @@ def train(cfg: Config):
         if not (is_last or (epoch + 1) % max(1, cfg.val_every) == 0):
             print(f"  epoch {epoch+1:3d}/{cfg.epochs}  loss {avg:.4f}"
                   f"                                  [{mins:.1f} min]", flush=True)
-            torch.save(model_for_eval.state_dict(),
-                       os.path.join(cfg.run_dir, "last.pth"))
+            if (epoch + 1) % max(1, cfg.ckpt_every) == 0:
+                save_state(epoch + 1)
             continue
 
         vpairs = va_pairs if cfg.val_max <= 0 else va_pairs[:cfg.val_max]
@@ -670,19 +732,23 @@ def train(cfg: Config):
               f"val wF {vres['wFmeasure']:.4f}  MAE {vres['MAE']:.4f}  "
               f"[{mins:.1f} min]{star}", flush=True)
 
-        torch.save(model_for_eval.state_dict(),
-                   os.path.join(cfg.run_dir, "last.pth"))
         json.dump(history, open(os.path.join(cfg.run_dir, "history.json"), "w"),
                   indent=1)
+        if is_last or (epoch + 1) % max(1, cfg.ckpt_every) == 0:
+            save_state(epoch + 1)
 
     # ---- final: best checkpoint on the real test set ----
     print("\n  loading best checkpoint for the test-set result...")
-    net.load_state_dict(torch.load(os.path.join(cfg.run_dir, "best.pth"),
-                                   map_location="cuda", weights_only=False))
-    test_res = evaluate(net, te_pairs, cfg,
-                        save_dir=os.path.join(cfg.run_dir, "preds"))
+    best_path = os.path.join(cfg.run_dir, "best.pth")
+    if not os.path.exists(best_path):
+        raise RuntimeError(f"no checkpoint at {best_path} - the run never "
+                           f"completed a validation pass")
+    net.load_state_dict(torch.load(best_path, map_location="cuda",
+                                   weights_only=False))
+    pred_dir = os.path.join(cfg.run_dir, "preds")
+    test_res = evaluate(net, te_pairs, cfg, save_dir=pred_dir)
 
-    ths, ious, dices = iou_dice(net, te_pairs, cfg)
+    ths, ious, dices = iou_dice(te_pairs, pred_dir)
     j = int(np.argmax(ious))
 
     summary = {
@@ -693,8 +759,15 @@ def train(cfg: Config):
         "test_best_IoU": float(ious[j]), "test_best_IoU_threshold": float(ths[j]),
         "test_Dice_at_best": float(dices[j]),
     }
-    json.dump(summary, open(os.path.join(cfg.run_dir, "summary.json"), "w"),
-              indent=1, default=str)
+    json.dump(summary, open(summary_path, "w"), indent=1, default=str)
+
+    # the resumable state is large (optimiser moments dominate) and useless once
+    # the run is finished -- drop it so Drive does not fill up across six runs
+    if os.path.exists(state_path):
+        try:
+            os.remove(state_path)
+        except OSError:
+            pass
 
     print(f"\n  TEST: " + "  ".join(f"{k} {v:.4f}" for k, v in test_res.items()
                                     if k != "seconds"))
@@ -846,6 +919,12 @@ def main():
                     help="validate every N epochs (default 1)")
     ap.add_argument("--val-max", type=int, default=None,
                     help="cap validation to N images (default: all)")
+    ap.add_argument("--ckpt-every", type=int, default=None,
+                    help="write resumable state every N epochs (default 5)")
+    ap.add_argument("--no-resume", action="store_true",
+                    help="ignore state.pt and start from epoch 0")
+    ap.add_argument("--force", action="store_true",
+                    help="re-run even if summary.json already exists")
     ap.add_argument("--eval-only", action="store_true")
     ap.add_argument("--ckpt", default=None)
     ap.add_argument("--selftest", action="store_true",
@@ -859,10 +938,14 @@ def main():
     cfg.name = args.name or args.preset
     for k in ("data_root", "out_dir", "split_file", "epochs", "batch_size",
               "lr", "backbone", "loss", "aug", "ema", "tta", "grad_accum",
-              "val_every", "val_max"):
+              "val_every", "val_max", "ckpt_every"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(cfg, k, v)
+    if args.no_resume:
+        cfg.resume = False
+    if args.force:
+        cfg.skip_done = False
     # keep the frozen split next to the runs unless told otherwise
     if args.split_file is None and args.out_dir is not None:
         cfg.split_file = os.path.join(cfg.out_dir, "val_split.json")
