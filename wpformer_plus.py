@@ -112,7 +112,7 @@ class Config:
     # ---- surviving Colab ----
     resume: bool = True       # continue from state.pt if the run was interrupted
     skip_done: bool = True    # a finished run (summary.json present) is not redone
-    ckpt_every: int = 5       # full resumable state written every N epochs
+    ckpt_every: int = 3       # full resumable state written every N epochs
 
     # ---- evaluation ----
     tta: bool = False
@@ -132,7 +132,11 @@ class Config:
 PRESETS = {
     # name        -> overrides on top of the paper baseline
     "baseline":  {},
+    # NOTE: "loss" changes TWO things at once, so a drop cannot be attributed.
+    # loss_only / ds_only split it into proper single-variable rows.
     "loss":      dict(loss="structure", ds_weights=(0.5, 1., 1., 1., 2.)),
+    "loss_only": dict(loss="structure"),
+    "ds_only":   dict(ds_weights=(0.5, 1., 1., 1., 2.)),
     "backbone":  dict(backbone="pvt_v2_b4", lr=5e-5,
                       backbone_ckpt="/content/checkpoints/pvt_v2_b4.pth"),
     "aug":       dict(aug="strong"),
