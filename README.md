@@ -17,7 +17,7 @@
 [![Backbone](https://img.shields.io/badge/Backbone-PVTv2--B2%20%7C%20B4-8b5cf6?style=flat-square)]()
 [![Resolution](https://img.shields.io/badge/Input-384%C3%97384-06b6d4?style=flat-square)]()
 [![Queries](https://img.shields.io/badge/Queries-16-f59e0b?style=flat-square)]()
-[![Status](https://img.shields.io/badge/Status-Experiments%20in%20progress-yellow?style=flat-square)]()
+[![Result](https://img.shields.io/badge/best-wF%CE%B2%200.7511%20(%2B1.64%25)-4c1?style=flat-square)]()
 
 </div>
 
@@ -360,22 +360,67 @@ The original recipe is ~108,000 optimiser steps — **8–10 h per run** on a T4
 
 ## Results
 
-> **Experiments are in progress.** This section is deliberately empty rather than provisional — no number appears here until it has actually been measured. Paper values above are cited from the publication, not reproduced by us yet.
+All rows trained for **30 epochs** on the frozen split, mixed precision, batch 4, evaluated on
+the 395-image CrackSeg9k test set. Every number below was measured by us on one T4; the
+paper's figures quoted earlier are cited as theirs.
 
 <div align="center">
 
-| Run | Backbone | Loss | Aug | EMA | TTA | Params | M ↓ | Fw ↑ | Sa ↑ | IoU ↑ | ΔFw |
-|:---|:---|:---|:---|:---:|:---:|---:|:---:|:---:|:---:|:---:|:---:|
-| baseline | B2 | BCE+IoU | paper | — | — | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | — |
-| + structure loss | B2 | structure | paper | — | — | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| + B4 backbone | B4 | BCE+IoU | paper | — | — | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| + augmentation | B2 | BCE+IoU | strong | — | — | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| + EMA | B2 | BCE+IoU | paper | ✓ | — | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| **combined** | B4 | structure | strong | ✓ | ✓ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| Run | Backbone | Change | Params | MAE ↓ | wF<sub>β</sub> ↑ | S<sub>α</sub> ↑ | IoU ↑ | ΔwF | Δ% |
+|:---|:---|:---|---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| baseline | B2 | — (paper recipe) | 26.1 M | .0146 | .7390 | .8291 | .6573 | — | — |
+| **backbone** | **B4** | **deeper encoder** | 63.3 M | **.0143** | **.7511** | **.8369** | **.6632** | **+.0121** | **+1.64%** |
+| ema | B2 | averaged weights | 26.1 M | .0149 | .7364 | .8272 | .6531 | −.0026 | −0.35% |
+| loss_only | B2 | structure loss | 26.1 M | .0152 | .7317 | .8297 | .6563 | −.0073 | −0.99% |
+| loss | B2 | structure loss + DS reweighting | 26.1 M | .0155 | .7286 | .8286 | .6522 | −.0104 | −1.41% |
+| aug | B2 | vflip, rot90, colour jitter | 26.1 M | .0159 | .7111 | .8127 | .6384 | −.0279 | −3.78% |
 
 </div>
 
----
+**One of six changes helped.** The winner — swapping PVTv2-B2 for B4 — is also the one found by
+reading the released code rather than the literature: every PVTv2 variant emits identical
+channel widths, so the "backbone upgrade" our proposal budgeted days for was a one-line change.
+
+### Test-time augmentation: a controlled failure
+
+TTA needs no training, so all four configurations were evaluated on the same B4 checkpoint.
+
+<div align="center">
+
+| TTA configuration | views unseen in training | wF<sub>β</sub> | Δ vs no TTA |
+|:---|:---:|:---:|:---:|
+| none | 0 of 1 | **.7511** | — |
+| identity + horizontal flip | 0 of 2 | .7498 | −.0013 |
+| + vertical flip | 2 of 4 | .7189 | −.0322 |
+| + scales 0.75 / 1.25 | 10 of 12 | .7024 | −.0487 |
+
+</div>
+
+The repo's augmentation flips **horizontally only** and never rescales, so a model trained with
+it has never seen a vertically flipped or rescaled crack. Averaging those views in costs
+accuracy in proportion to how many of them there are. Restricted to views the model was
+actually trained on, TTA is neutral.
+
+The per-image min–max stretch in `defect_test.py` was also tested and is **neutral**:
+.70238 with it, .70243 without.
+
+### What we read from this
+
+Every change that increased the *difficulty or diversity* the model had to absorb — a harder
+loss, heavier augmentation, unfamiliar test-time views — cost accuracy. The only change that
+helped added *capacity* instead.
+
+The most likely reason is visible in our own training curves: **best validation wF arrived at
+epoch 27–30 in all six runs**, so nothing had converged inside the 30-epoch budget.
+Regularisers are charged their cost immediately and repay it only near convergence, which
+these runs never reached. That is a hypothesis consistent with the evidence, not a proven
+claim — testing it needs a 60-epoch pair, which did not fit the compute budget.
+
+### Against the original target
+
+The project aimed for +2–3% over our own reproduced baseline. We reached **+1.64%** (wF
+.7390 → .7511), so the target was **not met**. Reporting the shortfall alongside four clean
+negative results is more useful than reporting a number we could not defend.
 
 ## Quick start
 
