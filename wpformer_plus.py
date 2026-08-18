@@ -117,7 +117,7 @@ class Config:
     # ---- evaluation ----
     tta: bool = False
     tta_scales: Tuple[float, ...] = (0.75, 1.0, 1.25)
-    tta_flips: bool = True
+    tta_views: int = 4        # 1 = none, 2 = +hflip, 4 = +vflip (see report)
     minmax: bool = True                 # the repo's per-image min-max stretch
 
     # ---- bookkeeping ----
@@ -482,7 +482,7 @@ def predict(model, pil_img, cfg):
         return p
 
     scales = cfg.tta_scales
-    n_flip = 4 if cfg.tta_flips else 1
+    n_flip = max(1, min(4, cfg.tta_views))
     acc, n = None, 0
 
     for s in scales:
@@ -872,7 +872,7 @@ def selftest():
         (np.random.rand(97, 131, 3) * 255).astype(np.uint8))   # odd, non-square
 
     c_no = Config(tta=False, train_size=64)
-    c_yes = Config(tta=True, train_size=64, tta_scales=(1.0,), tta_flips=True)
+    c_yes = Config(tta=True, train_size=64, tta_scales=(1.0,), tta_views=4)
     p_no = predict(ident, img, c_no)
     p_yes = predict(ident, img, c_yes)
     check("TTA: output shape unchanged", p_no.shape == p_yes.shape,
@@ -923,6 +923,10 @@ def main():
                     help="validate every N epochs (default 1)")
     ap.add_argument("--val-max", type=int, default=None,
                     help="cap validation to N images (default: all)")
+    ap.add_argument("--tta-scales", default=None,
+                    help="comma list, e.g. 1.0 or 0.75,1.0,1.25")
+    ap.add_argument("--tta-views", type=int, default=None,
+                    help="flip views: 1 none, 2 +hflip, 4 +vflip")
     ap.add_argument("--ckpt-every", type=int, default=None,
                     help="write resumable state every N epochs (default 5)")
     ap.add_argument("--no-resume", action="store_true",
@@ -942,10 +946,12 @@ def main():
     cfg.name = args.name or args.preset
     for k in ("data_root", "out_dir", "split_file", "epochs", "batch_size",
               "lr", "backbone", "loss", "aug", "ema", "tta", "grad_accum",
-              "val_every", "val_max", "ckpt_every"):
+              "val_every", "val_max", "ckpt_every", "tta_views"):
         v = getattr(args, k, None)
         if v is not None:
             setattr(cfg, k, v)
+    if args.tta_scales:
+        cfg.tta_scales = tuple(float(v) for v in args.tta_scales.split(","))
     if args.no_resume:
         cfg.resume = False
     if args.force:
