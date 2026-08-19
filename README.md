@@ -35,7 +35,7 @@
 - [Our contribution](#our-contribution)
 - [Results](#results)
 - [The report](#the-report)
-- [Quick start](#quick-start)
+- [Running it yourself](#running-it-yourself)
 - [Repository structure](#repository-structure)
 - [Experiment protocol](#experiment-protocol)
 - [Team](#team)
@@ -453,38 +453,134 @@ Every figure quoted in the paper and the slides traces to
 
 ---
 
-## Quick start
+## Running it yourself
 
-Both notebooks run end to end on a free Colab T4. Nothing to install locally, nothing to upload.
+Everything runs on a **free Colab T4**. Nothing to install locally, nothing to upload —
+the notebook clones the authors' code, downloads the weights and data, and fetches the
+training script from this repository.
 
 <div align="center">
 
-| | Notebook | What it does |
-|:---:|:---|:---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yuvraj0208/WPFormer-Surface-Defect-Detection/blob/main/notebooks/02_improvements_ablation.ipynb) | **Improvements + ablation** | Clones the authors' code, fetches the training script, runs every configuration and builds the comparison table |
-| — | **[As executed](notebooks/02_improvements_ablation_RUN.ipynb)** | The same notebook with every training log and figure from our runs |
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yuvraj0208/WPFormer-Surface-Defect-Detection/blob/main/notebooks/02_improvements_ablation.ipynb)
+
+**[02_improvements_ablation.ipynb](notebooks/02_improvements_ablation.ipynb)** — the runner
+&nbsp;·&nbsp;
+**[as we executed it](notebooks/02_improvements_ablation_RUN.ipynb)** — same notebook, every log kept
 
 </div>
 
+### Step by step
+
+**1 · Open the notebook.** Click the badge above, then **File → Save a copy in Drive** so you
+can run it and keep the outputs.
+
+**2 · Set the runtime.** *Runtime → Change runtime type → **T4 GPU***. Stay on the T4: it is
+the most compute-unit-efficient option, and every number in this repository was measured on
+one, so keeping the hardware fixed removes a variable.
+
+**3 · Run sections 1–6** one cell at a time (about 20 minutes, mostly the dataset download).
+
+| Section | What it does | Check |
+|:---|:---|:---|
+| 1 · GPU | confirms a GPU is attached | prints `Tesla T4` |
+| 2 · Drive | mounts Drive so a disconnect costs one epoch, not the run | approve the popup |
+| 3 · Clone + shims | clones the authors' repo at pinned commit `83a33bb`, applies compatibility fixes | `[ok] repo + shims ready` |
+| 4 · Fetch script | downloads `wpformer_plus.py` from this repository | `~39,000 bytes` |
+| 5 · Downloads | two PVTv2 backbones, the authors' checkpoint, the dataset | ~5 min, or `cached:` |
+| 6 · Splits | finds and verifies the train/test folders | must print **`train 7243`** and **`test 395`** |
+
+**4 · Run the self-test (section 7).** Twenty seconds, no data needed. It checks that each
+loss scores a good prediction below a bad one, that gradients flow, that nothing produces
+`NaN` on an empty mask, that EMA does the arithmetic it claims, and — the easiest thing to
+get silently wrong — that test-time augmentation undoes its own flips.
+
+> **If any line says FAIL, stop there.** Everything below depends on it.
+
+**5 · Freeze the validation split (section 8).** CrackSeg9k ships no validation set, so 10%
+of train is carved off once with a fixed seed and the filenames written to
+`val_split.json`. It must print **`loaded frozen split`** (or `CREATED` on a first run) —
+every configuration then uses that same partition.
+
+**6 · Run the experiments (section 9).** The queue cell works through every configuration in
+turn. Safe to re-run: a finished row prints `ALREADY FINISHED, skipping`, an interrupted one
+prints `RESUMED from epoch N`.
+
+**7 · Collect the results (sections 10–14).** Test-time augmentation rows (no training,
+~10 min), the comparison table, the training curves and the qualitative figure.
+
+### What it costs
+
+Measured on a T4, batch 4, 384×384, mixed precision:
+
+| | per epoch | 30-epoch run |
+|:---|---:|---:|
+| PVTv2-B2 rows | 6.3 min | **3.2 h** |
+| PVTv2-B4 rows | 10.1 min | **5.1 h** |
+| TTA evaluations | — | ~10 min, no training |
+| **everything in this repository** | | **≈ 21 GPU-hours** |
+
+On the free tier that is several sittings. Colab Pro's 100 compute units cover the whole
+study with roughly twice the headroom (≈1.8 units/hour on a T4). **Units drain whenever the
+runtime is attached, not only while it computes** — disconnect when you stop for the day.
+
+### Checking your numbers against ours
+
+Every run writes `summary.json` into its output directory. Compare against
+[`results/ablation.csv`](results/ablation.csv):
+
 ```bash
-# self-test first -- ~20 s, no data needed, checks losses / EMA / TTA
-python wpformer_plus.py --selftest
-
-# free win: no training, just 12-view inference on the authors' checkpoint
-python wpformer_plus.py --eval-only --ckpt checkpoints/CrackSeg9k.pth --tta
-
-# one ablation row (~2 h on a T4 with mixed precision)
-python wpformer_plus.py --preset baseline --epochs 30
-python wpformer_plus.py --preset loss     --epochs 30
-python wpformer_plus.py --preset backbone --epochs 30
-
-# the headline run
-python wpformer_plus.py --preset full --epochs 60
+python -c "import json;print(json.load(open('runs/baseline/summary.json'))['test'])"
 ```
 
-### Running the original code unmodified
+Expect `wFmeasure` near **0.7390** for the baseline and **0.7511** for `backbone`. Small
+differences are normal — GPU model, CUDA version and library versions all move the last
+digits. A gap larger than about 0.005 usually means the split or the epoch budget differs.
 
-The authors' code carries absolute Windows paths such as `D:\yanfeng\Paper Code\CVPR2025\WPFormer\model\pvt_v2_b2.pth`. Rather than editing their files, notebook 01 exploits the fact that **a backslash is an ordinary filename character on Linux** — that string is simply a relative filename that happens to contain backslashes. The literals are read out of the source with `ast.literal_eval` and files are created with exactly those names, so the authors' scripts run byte-for-byte as shipped.
+### Running individual configurations
+
+```bash
+python wpformer_plus.py --selftest                       # ~20 s, no data needed
+
+python wpformer_plus.py --preset baseline  --epochs 30   # the reference for everything
+python wpformer_plus.py --preset backbone  --epochs 30   # the only change that helped
+python wpformer_plus.py --preset loss_only --epochs 30
+python wpformer_plus.py --preset aug       --epochs 30
+python wpformer_plus.py --preset ema       --epochs 30
+
+# test-time augmentation on a finished checkpoint -- no training
+python wpformer_plus.py --preset backbone --eval-only \
+    --ckpt runs/backbone/best.pth --tta --tta-views 2 --tta-scales 1.0
+```
+
+Useful flags: `--force` re-runs a finished row, `--no-resume` ignores a saved state,
+`--val-every N` trades validation frequency for wall-clock time, and
+`--batch-size 2 --grad-accum 2` halves memory if PVTv2-B4 will not fit.
+
+Every improvement is a switch that **defaults to off**, so `--preset baseline` reproduces
+the paper's recipe exactly and each row differs from it by exactly one thing.
+
+### If something goes wrong
+
+| Symptom | Cause and fix |
+|:---|:---|
+| `gdown` fails on a download | Google Drive daily quota. Open the link in a browser, copy the file to your own Drive, then mount it. |
+| `could not locate a test split` | The archive's folder names differ. Section 6 prints the extracted tree — read it and set the paths by hand. |
+| count is not `7243 / 395` | A different CrackSeg9k release. Your numbers will not be comparable to ours or the paper's. |
+| `CUDA out of memory` on B4 | Append `--batch-size 2 --grad-accum 2`. Effective batch size stays 4. |
+| session dies mid-run | Reconnect, re-run sections 1–8, then re-run the queue. At most 3 epochs are lost. |
+
+### Running the authors' code unmodified
+
+The released implementation loads its backbone from an absolute Windows path,
+`D:\yanfeng\Paper Code\CVPR2025\WPFormer\model\pvt_v2_b2.pth`. Rather than editing their
+files, we exploit the fact that **a backslash is an ordinary filename character on Linux** —
+that string is simply a relative filename that happens to contain backslashes. The literal is
+read out of their source with `ast.literal_eval` and a file is created with exactly that
+name, after which their line runs unchanged. Three further incompatibilities (moved `timm`
+module paths, an `mmcv` import that is never called, and the `torch.load` default) are
+handled by environment shims. **No file in the authors' repository is modified**; it is
+cloned at a pinned commit and imported as shipped. Details in
+[`docs/REPRODUCTION.md`](docs/REPRODUCTION.md).
 
 ---
 
