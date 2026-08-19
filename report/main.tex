@@ -172,8 +172,9 @@ learned queries. MaskFormer~\cite{maskformer} carried the formulation into
 segmentation by predicting a set of binary masks with associated labels, and
 Mask2Former~\cite{mask2former} added masked cross-attention, restricting each
 query to its own predicted foreground and substantially accelerating
-convergence. PEM~\cite{pem} generates prototypes through masked cross-attention
-and introduces element-wise prototype--query interaction for efficiency.
+convergence. PEM~\cite{pem} derives its prototypes from a masked attention step and
+adds an element-wise interaction between prototypes and queries for
+efficiency.
 
 A recurring dependency in this line is the quality of an intermediate mask
 prior: when the prior omits part of an object or admits background, later
@@ -248,8 +249,8 @@ $1/32$ resolution with $64$, $128$, $320$ and $512$ channels. Each is projected
 to $64$ channels by a $1\times1$ convolution and passed to an
 FPN~\cite{fpn}, yielding a high-resolution map $F_1$ at $1/4$ scale and a
 pyramid $F_2 \dots F_4$. A set of $N=16$ learnable queries
-$Q \in \mathbb{R}^{N \times D}$ is first refined against $F_1$ by a two-layer
-transformer, then by three dual-domain decoder blocks.
+$Q \in \mathbb{R}^{N \times D}$ is refined first against $F_1$ inside a
+transformer of two layers, and then by three dual-domain decoder blocks.
 
 \paragraph{Wavelet-enhanced cross-attention.}
 Each block applies a Haar transform to the incoming feature map, producing one
@@ -413,8 +414,8 @@ for the study is approximately $21$ GPU-hours on a single T4.
 
 \subsection{Metrics}
 We report the five metrics used by the original work---mean absolute error
-($M$), weighted F-measure ($F^w_\beta$), S-measure ($S_\alpha$), mean
-F-measure ($mF_\beta$) and mean E-measure ($mE_\xi$)---computed with the same
+($M$), S-measure ($S_\alpha$), the weighted and mean F-measures
+($F^w_\beta$ and $mF_\beta$), and mean E-measure ($mE_\xi$)---computed with the same
 public implementation, plus intersection-over-union and Dice for comparability
 with the crack segmentation literature. $F^w_\beta$ is treated as the primary
 metric throughout. Predictions are evaluated at each image's native resolution.
