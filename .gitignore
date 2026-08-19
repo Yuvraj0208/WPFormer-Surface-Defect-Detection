@@ -23,7 +23,6 @@ downloads/
 # Experiment output
 runs/
 preds/
-results/
 *.log
 
 # Keep the frozen split -- it is what makes results comparable

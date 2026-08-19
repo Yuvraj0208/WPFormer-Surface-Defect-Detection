@@ -1,0 +1,6 @@
+configuration,scales,flip_views,views_total,views_unseen_in_training,minmax,MAE,wFmeasure,Smeasure,meanFm,meanEm,delta_wF
+none,1.0,1,1,0,True,0.014257,0.751052,0.836940,0.751575,0.942948,0.000000
+identity+hflip,1.0,2,2,0,True,0.014295,0.749790,0.840768,0.752351,0.939542,-0.001262
+identity+hflip+vflip+both,1.0,4,4,2,True,0.015444,0.718899,0.834808,0.728829,0.919810,-0.032153
+multiscale+4flips,"0.75,1.0,1.25",4,12,10,True,0.016054,0.702380,0.830822,0.717297,0.901043,-0.048672
+multiscale+4flips,"0.75,1.0,1.25",4,12,10,False,0.016053,0.702431,0.830818,0.717369,0.901094,-0.048621

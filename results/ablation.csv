@@ -1,0 +1,7 @@
+run,encoder,loss,augmentation,ema,params_M,epochs,MAE,wFmeasure,Smeasure,meanFm,meanEm,IoU,Dice,delta_wF,delta_pct
+baseline,pvt_v2_b2,paper,paper,False,26.10,30,0.0146,0.7390,0.8291,0.7390,0.9398,0.6573,0.7932,0.0000,0.00
+backbone,pvt_v2_b4,paper,paper,False,63.29,30,0.0143,0.7511,0.8369,0.7516,0.9429,0.6632,0.7975,0.0121,1.64
+ema,pvt_v2_b2,paper,paper,True,26.10,30,0.0149,0.7364,0.8272,0.7354,0.9407,0.6531,0.7902,-0.0026,-0.35
+loss_only,pvt_v2_b2,structure,paper,False,26.10,30,0.0152,0.7317,0.8297,0.7282,0.9310,0.6563,0.7925,-0.0073,-0.99
+loss,pvt_v2_b2,structure+ds,paper,False,26.10,30,0.0155,0.7286,0.8286,0.7260,0.9286,0.6522,0.7895,-0.0104,-1.41
+aug,pvt_v2_b2,paper,strong,False,26.10,30,0.0159,0.7111,0.8127,0.7095,0.9313,0.6384,0.7793,-0.0279,-3.78

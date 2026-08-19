@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="WPFormer — Pixel-level Surface Defect Detection" width="100%">
+<img src="assets/banner.png" alt="WPFormer — Pixel-level Surface Defect Detection" width="100%">
 
 <br>
 
@@ -34,6 +34,7 @@
 - [Published results](#published-results)
 - [Our contribution](#our-contribution)
 - [Results](#results)
+- [The report](#the-report)
 - [Quick start](#quick-start)
 - [Repository structure](#repository-structure)
 - [Experiment protocol](#experiment-protocol)
@@ -422,6 +423,36 @@ The project aimed for +2–3% over our own reproduced baseline. We reached **+1.
 .7390 → .7511), so the target was **not met**. Reporting the shortfall alongside four clean
 negative results is more useful than reporting a number we could not defend.
 
+## The report
+
+The full write-up is an 8-page paper in the CVPR 2026 template, covering the reproduction,
+the six single-variable ablations and the test-time-augmentation analysis.
+
+| File | |
+|:---|:---|
+| [`report/main.tex`](report/main.tex) | the paper |
+| [`report/main.bib`](report/main.bib) | 14 references |
+| [`report/figures/`](report/figures) | architecture diagram, training curves, qualitative comparison |
+| [`report/README.md`](report/README.md) | how to compile it on Overleaf |
+
+Build it by opening the official
+[CVPR 2026 template](https://www.overleaf.com/latex/templates/cvpr-2026-submission-template/rdtrwgypxxzb),
+replacing `main.tex` and `main.bib`, and uploading `figures/`. Full steps are in the report
+README.
+
+### Where the numbers live
+
+Every figure quoted in the paper and the slides traces to
+[`results/`](results):
+
+| File | |
+|:---|:---|
+| [`results/ablation.csv`](results/ablation.csv) | the six configurations, all seven metrics |
+| [`results/tta.csv`](results/tta.csv) | four TTA settings on one fixed checkpoint |
+| [`results/convergence.csv`](results/convergence.csv) | best epoch per run — the under-training evidence |
+
+---
+
 ## Quick start
 
 Both notebooks run end to end on a free Colab T4. Nothing to install locally, nothing to upload.
@@ -430,8 +461,8 @@ Both notebooks run end to end on a free Colab T4. Nothing to install locally, no
 
 | | Notebook | What it does |
 |:---:|:---|:---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yuvraj0208/WPFormer-Surface-Defect-Detection/blob/main/notebooks/01_baseline_reproduction.ipynb) | **01 · Baseline reproduction** | Clones the authors' code, downloads their checkpoint, reproduces the CrackSeg9k row of Table 1 |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yuvraj0208/WPFormer-Surface-Defect-Detection/blob/main/notebooks/02_improvements_ablation.ipynb) | **02 · Improvements + ablation** | Runs every improvement as its own experiment and builds the comparison table |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yuvraj0208/WPFormer-Surface-Defect-Detection/blob/main/notebooks/02_improvements_ablation.ipynb) | **Improvements + ablation** | Clones the authors' code, fetches the training script, runs every configuration and builds the comparison table |
+| — | **[As executed](notebooks/02_improvements_ablation_RUN.ipynb)** | The same notebook with every training log and figure from our runs |
 
 </div>
 
@@ -463,8 +494,16 @@ The authors' code carries absolute Windows paths such as `D:\yanfeng\Paper Code\
 .
 ├── wpformer_plus.py                        # all improvements, each a switch (defaults = paper)
 ├── notebooks/
-│   ├── 01_baseline_reproduction.ipynb      # reproduce Table 1 on CrackSeg9k
-│   └── 02_improvements_ablation.ipynb      # self-contained; embeds wpformer_plus.py
+│   ├── 02_improvements_ablation.ipynb      # the experiment runner
+│   └── 02_improvements_ablation_RUN.ipynb  # the same notebook, as executed, with all logs
+├── report/
+│   ├── main.tex                            # 8-page paper, CVPR 2026 template
+│   ├── main.bib                            # 14 references
+│   └── figures/                            # architecture, curves, qualitative
+├── results/
+│   ├── ablation.csv                        # six configurations, seven metrics
+│   ├── tta.csv                             # four TTA settings, fixed checkpoint
+│   └── convergence.csv                     # best epoch per run
 ├── docs/
 │   ├── PAPER_EXPLAINED.md                  # the method in plain language
 │   ├── IMPROVEMENTS.md                     # every change, why it works, expected effect
