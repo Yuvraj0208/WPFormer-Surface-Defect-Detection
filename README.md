@@ -510,7 +510,7 @@ CrackSeg9k ships **7243 train / 395 test** and **no validation split**. Choosing
 |:---|:---|:---|
 | **Yuvraj Singh** | 27PGAI0086 | Data engineering · baseline reproduction |
 | **Nishkarsh Khandelwal** | 27PGAI0051 | Architecture · backbone upgrade |
-| **Darrsheni Sapovadia** | 27PGAI00— | Loss design · training · evaluation |
+| **Darrsheni Sapovadia** | 27PGAI0063 | Loss design · training · evaluation |
 
 </div>
 

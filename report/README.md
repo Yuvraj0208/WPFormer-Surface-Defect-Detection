@@ -19,21 +19,16 @@ official template rather than copied around.
 
 The template already provides `cvpr.sty` and `ieeenat_fullname.bst`. **Do not edit them.**
 
-## Switching from review to camera-ready
+## Review vs camera-ready
 
-`main.tex` line 8 currently reads:
-
-```latex
-\usepackage[review]{cvpr}
-```
-
-This adds line numbers and the review banner. For the final submission change it to:
+`main.tex` is already set to camera-ready:
 
 ```latex
 \usepackage{cvpr}
 ```
 
-and fill in Darrsheni's roll number on line 28 (currently `27PGAI00XX`).
+That gives no line numbers and no review banner, which is what you submit. Add
+`[review]` back only if you want numbered lines while drafting.
 
 ## Files
 
