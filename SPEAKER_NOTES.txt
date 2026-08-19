@@ -1,0 +1,353 @@
+WPFormer  -  15 minute presentation  -  speaker notes
+=====================================================
+
+RUNNING ORDER
+   1 - 6    DARRSHENI    the paper           4.0 min
+   7        YUVRAJ       the video           2.2 min  (1.5 min silent)
+   8 - 10   NISHKARSH    what we built       2.5 min
+  11 - 14   YUVRAJ       the numbers         3.8 min
+  15        ALL          questions           1.0 min
+                                            --------
+                                            15.0 min
+
+These notes are already in PowerPoint's Presenter View.
+Present with Alt+F5, or Slide Show > Use Presenter View.
+
+=============================================================
+SLIDE 1
+=============================================================
+DARRSHENI  ·  20 sec
+
+Good morning. We are Darrsheni, Yuvraj and Nishkarsh.
+
+Our project builds on a CVPR 2025 paper called WPFormer. It finds cracks on
+surfaces - not "there is a crack somewhere", but exactly which pixels.
+
+We reproduced it, then tested five common tricks people use to improve such
+models. I'll cover the paper, Yuvraj shows a video, Nishkarsh explains what we
+built, Yuvraj gives the numbers.
+
+Fair warning - most of our results are negative. That turned out to be the
+interesting part.
+
+=============================================================
+SLIDE 2
+=============================================================
+DARRSHENI  ·  55 sec
+
+Look at the picture. There is a crack running across it. Take a second - it is
+not easy to see. That is the point.
+
+Three things make this hard.
+
+Cracks are THIN - sometimes three pixels wide. Shrink the image once and the
+crack vanishes.
+
+They are INVISIBLE - grey crack on grey concrete, almost no difference in
+brightness.
+
+And they are RARE. Only about one and a half percent of pixels are crack.
+
+So think what that means. A useless model that just says "no crack" everywhere
+is still 98.6 percent correct.
+
+That one fact explains almost everything in this project.
+
+=============================================================
+SLIDE 3
+=============================================================
+DARRSHENI  ·  40 sec
+
+So how was this solved before?
+
+A network reads the image, and at the very end one convolution layer asks each
+pixel - crack, or not?
+
+The problem is that this last layer is the same for every image. Once training
+ends, its numbers never change.
+
+Think of a rubber stamp. You press the same stamp on every photo forever.
+Bright scratch on steel? Same stamp. Faint crack on concrete? Same stamp.
+
+The paper calls it a single image-independent query. In plain words - it cannot
+adapt to what it is looking at.
+
+=============================================================
+SLIDE 4
+=============================================================
+DARRSHENI  ·  50 sec
+
+WPFormer replaces that one frozen stamp with sixteen learnable queries.
+
+Think of sixteen detectives. Each one looks at THIS image and forms its own
+opinion of where the crack is. They are not frozen - they react to the photo in
+front of them.
+
+Then each proposes a mask and says how confident it is, and the final answer is
+a weighted blend of all sixteen.
+
+In the diagram, PVTv2 reads the image at four sizes, the FPN combines them, and
+the queries pass through three decoder blocks.
+
+Inside each block are the paper's two real ideas - WCA and PCA. That is the next
+slide.
+
+=============================================================
+SLIDE 5
+=============================================================
+DARRSHENI  ·  55 sec
+
+Two ideas.
+
+WCA, the wavelet idea. Any image splits into blurry shapes and sharp detail -
+bass and treble, like music. A crack is a thin sharp line, so it lives in the
+treble. Turn the treble up and faint cracks appear.
+
+The catch is that treble also carries hiss. Crack edges and camera noise sit
+together. So the model learns a volume knob - noise down, crack untouched.
+
+PCA, the prototype idea. There are about 2,300 positions to look at, and nearly
+all are boring background that drowns out the crack. So squeeze them into
+sixteen summary cards.
+
+Why not just delete the background? Other methods do. But if their guess is
+wrong, the missed part is gone forever. Summarising keeps every pixel.
+
+=============================================================
+SLIDE 6
+=============================================================
+DARRSHENI  ·  30 sec
+
+Against seventeen other methods, WPFormer wins on every measure.
+
+The number to remember all talk is wF-beta. It balances - did you find the
+crack, and did you also mark things that were not cracks. Higher is better. The
+paper gets 0.7672.
+
+One thing before I hand over. These scores are only around 0.75. On ordinary
+photos these same networks score far higher. So this problem is not solved - and
+that is why we thought there was room to improve it.
+
+Over to Yuvraj.
+
+=============================================================
+SLIDE 7
+=============================================================
+YUVRAJ  ·  2 min 15 sec total
+
+BEFORE PLAYING (15 sec):
+
+Thanks Darrsheni. We made this animation ourselves for this project. It has no
+sound, so I will stay quiet and let you watch.
+
+[CLICK PLAY - then stay silent for 1 minute 33 seconds]
+
+AFTER IT ENDS (20 sec):
+
+So that is the method, and that is what we set out to do.
+
+Did any of it work? Nishkarsh will tell you what we built, then I come back with
+the numbers. I'll warn you now - they surprised us.
+
+=============================================================
+SLIDE 8
+=============================================================
+NISHKARSH  ·  50 sec
+
+Before what we changed, how we made the test fair. This matters more than it
+sounds.
+
+First - we compare against our OWN baseline, not the paper's printed number.
+Different GPU, different libraries. Comparing to their number would compare two
+setups, not two methods.
+
+Second - we froze the data split. CrackSeg9k has no validation set, so we cut
+ten percent out of training once and saved the exact file names. Every
+experiment uses that same split.
+
+Third - every run gets exactly thirty epochs. Same time for everyone.
+
+And why so strict? If you pick your best model by looking at the test set, you
+have already used it. It is not a test any more.
+
+=============================================================
+SLIDE 9
+=============================================================
+NISHKARSH  ·  55 sec
+
+Five things we tried. None are random - the literature says all five work well.
+
+Bigger backbone - simply more capacity.
+
+Structure loss - right now every pixel counts the same, so 98.6 percent
+background drowns everything. This makes crack pixels count five times more.
+
+Stronger augmentation - flip, rotate, change colours. A crack has no correct
+direction, so an upside-down crack is still a valid crack.
+
+EMA - instead of the weights from the last training step, average the last few
+hundred steps.
+
+Test-time augmentation - show the model twelve views of the same photo and
+average. No retraining at all.
+
+Now the key design choice. Every one is a switch, OFF by default. So with
+nothing on, our code reproduces the paper exactly. Each experiment differs by
+exactly ONE thing. If a number moves, we know what moved it.
+
+=============================================================
+SLIDE 10
+=============================================================
+NISHKARSH  ·  55 sec
+
+Two things we only found by reading the authors' code line by line.
+
+First - our plan set aside several DAYS to swap the backbone. We assumed we'd
+rewrite all the connecting layers.
+
+Then we looked. Every version of PVTv2 has exactly the same channel widths - 64,
+128, 320, 512, identical. The bigger ones are deeper, not wider. So nothing else
+needed changing. Days of planned work became one line.
+
+Second, and this one is funny. The data loader computes an edge map for every
+image on every batch - thousands of times during training. And the training file
+never reads it. Computed, then thrown straight in the bin.
+
+That edge map is exactly the boundary signal we wanted. Already there, already
+running, nobody using it.
+
+Lesson - read the code, not just the paper. Over to Yuvraj.
+
+=============================================================
+SLIDE 11
+=============================================================
+YUVRAJ  ·  80 sec  -  SLOW DOWN, this is the main slide
+
+Right. We ran all five. Here is what happened.
+
+Our baseline scored 0.7390. That is what everything has to beat.
+
+Second row, green - bigger backbone. 0.7511. Plus 1.64 percent, and the only
+change that improved every metric at once. That one worked.
+
+Now look at the rest. All red.
+
+EMA - slightly worse, but that is really just noise.
+
+Structure loss - worse by one percent. And this was the change we were most
+confident about.
+
+Add the reweighting on top - worse again.
+
+Last row. Stronger augmentation. Minus 3.78 percent. The biggest drop, and the
+one that shocked us, because augmentation is supposed to be nearly free.
+
+So four out of five made the model WORSE.
+
+[PAUSE - let it land]
+
+The obvious question is why. That is the interesting part.
+
+=============================================================
+SLIDE 12
+=============================================================
+YUVRAJ  ·  55 sec
+
+Here is the experiment that gave us the answer.
+
+Test-time augmentation needs no training. So we took one finished model, kept it
+completely fixed, and only changed how many views we averaged.
+
+Plain image - 0.7511. Add a left-right flip - basically the same. Add an
+upside-down flip - drops to 0.7189. Add zooming - drops again to 0.7024.
+
+Now the middle column - views the model never saw during training. Zero, zero,
+two, ten.
+
+See it? The more unfamiliar views we mixed in, the worse it got. Perfectly in
+order.
+
+And here is why. The authors only ever flipped images left to right during
+training. Never upside down. Never zoomed. So an upside-down crack means nothing
+to this model.
+
+Same weights, nothing retrained. Only the views changed.
+
+=============================================================
+SLIDE 13
+=============================================================
+YUVRAJ  ·  55 sec
+
+So why did four of five fail?
+
+Look at the curves. Not one line has flattened out - they are all still climbing
+when training stops.
+
+And the box on the right - best epoch for each run: 27, 29, 30, 28, 28. Out of
+30. Every run peaked right at the end.
+
+In plain words - none of them had finished learning. We ran out of time, not out
+of improvement.
+
+Now, three of our four failed ideas make the training job HARDER. That is a
+trade - you pay the cost immediately and collect the reward much later, once the
+model settles.
+
+We stopped at thirty epochs. Nothing had settled. So we paid and never
+collected.
+
+And the one that worked - the bigger backbone - does not make the job harder. It
+just adds capacity, which pays off straight away.
+
+To be honest, this is our best explanation, not something we proved.
+
+=============================================================
+SLIDE 14
+=============================================================
+YUVRAJ  ·  40 sec
+
+So where did we land.
+
+We aimed for two to three percent. We got 1.64. We did not reach our target, and
+we are telling you that instead of moving the goalposts.
+
+But I don't think that makes this a failed project.
+
+We have a clean negative result - four popular techniques, tested properly, one
+variable at a time, all failing on this problem. That saves the next person the
+time we spent.
+
+We have a mechanism, not a shrug - the TTA experiment shows why, on a fixed
+model.
+
+And we know the next experiment: train twice as long. If we are right, some
+failures should turn into wins. We ran out of GPU budget.
+
+If we had reported plus two percent and hidden four failures, this would be a
+worse project.
+
+Questions?
+
+=============================================================
+SLIDE 15
+=============================================================
+ALL THREE  ·  questions  (not spoken - reference only)
+
+"Why only 30 epochs?" - GPU budget, about 21 GPU-hours on Colab. The key point
+is every run got the SAME 30, so the comparison is fair.
+
+"Is 1.64% significant?" - One seed, so no error bars. But the effects we
+interpret are 0.012 to 0.028 - ten times bigger than the 0.0026 we call noise.
+
+"Why is your baseline below the paper's 0.7672?" - Two of our own choices. Half
+the epochs, 30 not 60. And our frozen split removes 724 images, so we train on
+about 10 percent less data. We accepted that because picking models on the test
+set would invalidate everything.
+
+"Why not Focal Tversky?" - It has three parameters to tune, structure loss has
+one. No compute for the search.
+
+"What next?" - The 60-epoch pair, to test the under-training explanation.
+
+"What is that purple line stopping early in the curves?" - The combined run. We
+abandoned it once we saw the individual components fail.
