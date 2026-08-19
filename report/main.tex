@@ -193,6 +193,23 @@ visible, and simultaneously amplifies sensor noise and surface grain. WPFormer
 addresses this by learning channel weights that modulate the high band before
 it reaches the queries.
 
+\subsection{Reproduction and negative results}
+Independent reproduction is an established instrument in machine learning, and
+reproducibility tracks now accompany several major venues. Their recurring
+finding is that reported gains often depend on training details that the
+originating paper treats as incidental, and that improvements evaluated in
+isolation do not always survive transfer to a new codebase, dataset or budget.
+Negative results are correspondingly informative when the comparison is
+controlled: a technique that fails under a stated protocol constrains where it
+can be expected to work, whereas a technique that is simply omitted tells the
+reader nothing.
+
+Our study is of this kind. We do not propose an architecture. We fix one, fix
+the data, fix the budget, and vary a single factor at a time, which is what
+licenses attributing the resulting differences to the factors themselves. The
+cost of that design is breadth---five heuristics on one dataset---and we are
+explicit in Sec.~\ref{sec:limits} about what it therefore cannot establish.
+
 \subsection{Losses and augmentation for imbalanced segmentation}
 Because defect pixels are rare, plain cross-entropy is dominated by background.
 Dice loss~\cite{vnet} optimises region overlap and is far less sensitive to
@@ -435,6 +452,34 @@ context only; it is not a control for any row above it.}
 
 Table~\ref{tab:main} reports every configuration. One of the five heuristics
 improves on the reproduced baseline.
+
+\subsection{Fidelity of the reproduction}
+\label{sec:fidelity}
+Our reproduced baseline reaches $F^w_\beta = 0.7390$ against the $0.7672$
+reported by Yan~\etal, a shortfall of $0.0282$. Because every comparison in
+this paper is internal, that gap does not affect our conclusions---but leaving
+it unexamined would leave open the possibility that our reproduction is simply
+broken, so we account for it.
+
+Two differences are sufficient to explain a gap of this size, and both are
+consequences of choices we made deliberately. First, we train for 30 epochs
+rather than 60. Table~\ref{tab:converge} shows the baseline still improving at
+epoch 27, so half the schedule is being withheld from a run that had not
+finished using it. Second, and more easily overlooked, our frozen validation
+split removes $724$ images from training: we optimise on $6519$ images where
+the original recipe uses all $7243$, roughly $10\%$ less data. We accept that
+cost because the alternative---selecting epochs on the test set---would
+compromise every number in the paper, but it is a real reduction in
+supervision and it acts in the same direction as the shortened schedule.
+
+Remaining differences are of a smaller order: a different GPU and CUDA version,
+current rather than contemporaneous library versions, and a single seed against
+an unreported number of runs. We did not observe any evidence of a defective
+reproduction---the metric ordering across the five reference methods we could
+check is preserved, and the qualitative predictions in Fig.~\ref{fig:qual} are
+of the expected character---and we therefore treat the baseline as a valid
+control for the ablations, while declining to compare it directly against the
+published row.
 
 \paragraph{Capacity is the only heuristic that helps.}
 Substituting the deeper encoder raises $F^w_\beta$ from $0.7390$ to $0.7511$,
