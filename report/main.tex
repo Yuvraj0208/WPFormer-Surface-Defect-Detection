@@ -1,20 +1,29 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Compile on Overleaf:  New Project -> Templates -> search "CVPR 2025"
-%  Replace that project's main.tex with this file, and upload refs.bib and the
-%  figures/ folder.  Do not edit cvpr.sty.
+%  Built on the official CVPR 2026 author kit:
+%      https://github.com/cvpr-org/author-kit
+%  Drop this file in place of the template's main.tex, put main.bib alongside
+%  it, and place the three PNGs in figures/.  Do not edit cvpr.sty.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \documentclass[10pt,twocolumn,letterpaper]{article}
 
-\usepackage{cvpr}              % camera-ready (add [review] for numbered lines)
+%%%%%%%%% PAPER TYPE
+\usepackage{cvpr}                % CAMERA-READY (what you submit)
+% \usepackage[review]{cvpr}      % review version: line numbers, anonymised
+% \usepackage[pagenumbers]{cvpr} % camera-ready look WITH page numbers
+
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{xcolor}
-\usepackage[pagebackref,breaklinks,colorlinks]{hyperref}
 
-\def\paperID{1}
+% hyperref settings taken from the official template
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+
+%%%%%%%%% PAPER ID
+\def\paperID{0000}
 \def\confName{CVPR}
 \def\confYear{2026}
 
@@ -733,7 +742,7 @@ repository. All experiments run on a single NVIDIA T4.
 
 {\small
 \bibliographystyle{ieeenat_fullname}
-\bibliography{refs}
+\bibliography{main}
 }
 
 \end{document}
