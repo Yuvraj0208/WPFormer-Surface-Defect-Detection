@@ -3,19 +3,18 @@ WPFormer  -  15 minute presentation  -  speaker notes
 
 RUNNING ORDER
    1 - 6    DARRSHENI    the paper          4.0 min
-   7        YUVRAJ       the video          1.8 min   (1:14 silent)
+   7        YUVRAJ       the video          1.8 min   (narrate over it)
    8 - 10   NISHKARSH    what we built      2.5 min
   11 - 14   YUVRAJ       the numbers        3.8 min
   15        ALL          questions          1.0 min
                                            --------
                                            13.1 min   (~2 min spare)
 
-The video now ENDS at the pipeline. It no longer shows our five changes,
-so Nishkarsh's section is entirely new to the audience.
+SLIDE 7 - do NOT stand silent. Short lines are timed to the scene
+changes. The video runs 1:14 and already shows its own headings, so
+you are adding the story, not reading the screen.
 
-Slide 7 is video only - no text. Click anywhere on it to play.
-
-Notes are in PowerPoint Presenter View: Alt+F5 to rehearse.
+Notes are in PowerPoint Presenter View: press Alt+F5 to rehearse.
 
 =============================================================
 SLIDE 1
@@ -137,24 +136,55 @@ Over to Yuvraj.
 =============================================================
 SLIDE 7
 =============================================================
-YUVRAJ  ·  1 min 50 sec total
+YUVRAJ  ·  1 min 50 sec  ·  TALK OVER THE VIDEO, don't stand silent
 
-BEFORE PLAYING (15 sec):
+SAY FIRST, then click (12 sec):
 
-Thanks Darrsheni. We built this animation ourselves for this project. No sound -
-so I will stay quiet and let you watch.
+  "We made this animation ourselves. There's no sound, so I'll talk you
+   through it."
 
-It walks through everything Darrsheni just explained, but in motion.
+  [CLICK ANYWHERE ON THE SLIDE]
 
-[CLICK ANYWHERE ON THE SLIDE TO PLAY - then stay silent for 1 minute 14 seconds]
+--- SHORT LINES, one per scene. Say it, then let the animation play. ---
 
-AFTER IT ENDS (20 sec):
+0:00   title
+       "The whole method, in one minute."
 
-So that is the method - the paper's contribution.
+0:05   concrete image, magnifier zooms in
+       "That faint line is a crack.
+        Only a few pixels wide."
 
-Now, we did not stop there. We tried five ways to make it better. Nishkarsh will
-tell you what we built, then I come back with the numbers. Fair warning - they
-surprised us.
+0:16   boxes, red stamp pressing down
+       "This is the old way.
+        One fixed filter, stamped everywhere. It can't adapt."
+
+0:26   sixteen purple dots light up
+       "WPFormer's fix - sixteen queries.
+        Each one reads the image and votes."
+
+0:38   LL LH HL HH split, then the noise strip cleans
+       "Idea one. Blur versus sharp detail.
+        The crack is in the sharp part. Watch the noise fade."
+
+0:49   dots collapse into sixteen
+       "Idea two. Two thousand positions, squeezed into sixteen.
+        Nothing gets deleted."
+
+0:58   full pipeline assembles
+       "And that's everything together."
+
+1:09   closing card
+       [STOP - let it finish, about 5 seconds]
+
+--- AFTER IT ENDS (20 sec) ---
+
+  "So that's the method. But we didn't stop there - we tried five ways to make
+   it better. Nishkarsh will tell you what we built, then I'll come back with
+   the numbers. Fair warning, they surprised us."
+
+NOTE: the video already shows its own headings and labels on screen, so you are
+adding the story, not reading the slide. If you fall behind, drop a line - the
+visuals hold on their own.
 
 =============================================================
 SLIDE 8
